@@ -6,61 +6,62 @@
     <title>RacingGamers — Live Laptimes</title>
     <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
-    <!-- Version box -->
-    <div id="version">Loading…</div>
 
-    <h1>RacingGamers — Live Laptimes</h1>
+<div id="version-box">
+    v1.3 — <span id="last-updated">Loading…</span>
+</div>
 
-    <h2>Fastest Valid Laps (Per Driver)</h2>
-    <table id="fastest-table">
-        <thead>
-            <tr>
-                <th>Driver</th>
-                <th>Best Lap</th>
-                <th>Timestamp</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+<h1>RacingGamers — Live Laptimes</h1>
 
-    <hr />
+<h2>Fastest Valid Laps (Per Driver)</h2>
 
-    <div class="controls">
-        <label>
-            Filter Validity:
-            <select id="filter-validity">
-                <option value="all">All laps</option>
-                <option value="valid">Valid only</option>
-                <option value="invalid">Invalid only</option>
-            </select>
-        </label>
+<table id="fastest-table">
+    <thead>
+        <tr>
+            <th>Driver</th>
+            <th>Best Lap</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
 
-        <label>
-            Driver:
-            <select id="filter-driver">
-                <option value="all">All drivers</option>
-            </select>
-        </label>
-    </div>
+<hr>
 
-    <h2>All Laps</h2>
-    <table id="laps-table">
-        <thead>
-            <tr>
-                <th data-sort="driver">Driver</th>
-                <th data-sort="car">Car</th>
-                <th data-sort="track">Track</th>
-                <th data-sort="lap_time_ms">Lap Time</th>
-                <th data-sort="lap_count">Lap</th>
-                <th data-sort="valid">Valid</th>
-                <th data-sort="date">Timestamp</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+<div id="filters">
+    Filter Validity:
+    <select id="filter-validity">
+        <option value="all">All laps</option>
+        <option value="valid">Valid only</option>
+        <option value="invalid">Invalid only</option>
+    </select>
 
-    <script src="script.js"></script>
+    Driver:
+    <select id="filter-driver">
+        <option value="all">All drivers</option>
+    </select>
+</div>
+
+<h2>All Laps</h2>
+
+<table id="laps-table">
+    <thead>
+        <tr>
+            <th data-sort="driver">Driver</th>
+            <th data-sort="car">Car</th>
+            <th data-sort="track">Track</th>
+            <th data-sort="lap_time_ms">Lap Time</th>
+            <th data-sort="lap_count">Lap</th>
+            <th data-sort="valid">Valid</th>
+            <th data-sort="date">Timestamp</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div id="status"></div>
+
+<script src="script.js"></script>
 </body>
 </html>

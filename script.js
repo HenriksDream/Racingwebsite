@@ -1,22 +1,19 @@
-// ----------------------------
-// CONFIG
-// ----------------------------
 const API_URL = "https://api.racinggamers.se/laptimes.json";
 
 const statusBox = document.getElementById("status");
-const tableBody = document.querySelector("#laps-table tbody");
-const filterSelect = document.getElementById("filter-validity");
-const driverFilter = document.getElementById("filter-driver");
-
 const fastestBody = document.querySelector("#fastest-table tbody");
+const tableBody = document.querySelector("#laps-table tbody");
+
+const filterValidity = document.getElementById("filter-validity");
+const filterDriver = document.getElementById("filter-driver");
 
 let allLaps = [];
 let currentSort = null;
 let sortDirection = 1;
 
-// ----------------------------
-// FORMAT LAP TIME
-// ----------------------------
+// ---------------------------------------------------
+// Utility: Format lap time
+// ---------------------------------------------------
 function formatMs(ms) {
     if (!ms) return "-";
     let totalSeconds = Math.floor(ms / 1000);
@@ -26,88 +23,98 @@ function formatMs(ms) {
     return `${minutes}:${seconds.toString().padStart(2, "0")}.${milli.toString().padStart(3, "0")}`;
 }
 
-// ----------------------------
-// LOAD DATA FROM API
-// ----------------------------
-async function loadData() {
+// ---------------------------------------------------
+// Load data (with silent mode)
+// ---------------------------------------------------
+async function loadData(showLoading = true) {
     try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error("API failed");
+        if (showLoading) statusBox.textContent = "Loading…";
+
+        const response = await fetch(API_URL + `?t=${Date.now()}`); // prevent cache
+        if (!response.ok) throw new Error("API error");
 
         allLaps = await response.json();
-        updateDriverFilter();
-        renderFastest();
-        renderTable();
-    } catch (e) {
-        console.error(e);
+
+        if (showLoading) statusBox.textContent = "";
+
+        // Only render on manual load
+        if (showLoading) {
+            renderDriverList();
+            renderFastestLaps();
+            renderFullTable();
+        }
+
+        document.getElementById("last-updated").textContent =
+            new Date().toLocaleTimeString();
+
+    } catch (err) {
+        console.error(err);
+        if (showLoading) statusBox.textContent = "Error fetching data";
     }
 }
 
-// ----------------------------
-// BUILD DRIVER DROPDOWN
-// ----------------------------
-function updateDriverFilter() {
-    const drivers = [...new Set(allLaps.map(l => l.driver).filter(Boolean))];
-
-    driverFilter.innerHTML = `<option value="all">All drivers</option>`;
-    drivers.forEach(d => {
-        const opt = document.createElement("option");
-        opt.value = d;
-        opt.textContent = d;
-        driverFilter.appendChild(opt);
-    });
+// ---------------------------------------------------
+// Build the driver dropdown
+// ---------------------------------------------------
+function renderDriverList() {
+    let drivers = [...new Set(allLaps.map(l => l.driver))].sort();
+    filterDriver.innerHTML = `<option value="all">All drivers</option>`;
+    drivers.forEach(d =>
+        filterDriver.innerHTML += `<option value="${d}">${d}</option>`
+    );
 }
 
-// ----------------------------
-// FASTEST VALID LAP PER DRIVER
-// ----------------------------
-function renderFastest() {
+// ---------------------------------------------------
+// Fastest laps per driver
+// ---------------------------------------------------
+function renderFastestLaps() {
     fastestBody.innerHTML = "";
 
+    const validLaps = allLaps.filter(l => l.valid);
+
     const fastest = {};
-
-    allLaps.forEach(lap => {
-        if (!lap.valid) return;
-
-        if (!fastest[lap.driver] || lap.lap_time_ms < fastest[lap.driver].lap_time_ms) {
-            fastest[lap.driver] = lap;
+    validLaps.forEach(l => {
+        if (!fastest[l.driver] || l.lap_time_ms < fastest[l.driver].lap_time_ms) {
+            fastest[l.driver] = l;
         }
     });
 
-    Object.entries(fastest).forEach(([driver, lap]) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${driver}</td>
-            <td>${formatMs(lap.lap_time_ms)}</td>
-            <td>${lap.date}</td>
-        `;
-        fastestBody.appendChild(tr);
-    });
+    Object.values(fastest)
+        .sort((a, b) => a.lap_time_ms - b.lap_time_ms)
+        .forEach(l => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${l.driver}</td>
+                <td>${formatMs(l.lap_time_ms)}</td>
+                <td>${l.date}</td>
+            `;
+            fastestBody.appendChild(row);
+        });
 }
 
-// ----------------------------
-// RENDER ALL LAPS TABLE
-// ----------------------------
-function renderTable() {
+// ---------------------------------------------------
+// Render full table
+// ---------------------------------------------------
+function renderFullTable() {
     tableBody.innerHTML = "";
 
-    let filtered = allLaps;
+    let data = [...allLaps];
 
-    // validity filter
-    if (filterSelect.value === "valid") {
-        filtered = filtered.filter(l => l.valid === true);
-    } else if (filterSelect.value === "invalid") {
-        filtered = filtered.filter(l => l.valid === false);
+    // Apply validity filter
+    if (filterValidity.value === "valid") {
+        data = data.filter(l => l.valid === true);
+    } else if (filterValidity.value === "invalid") {
+        data = data.filter(l => l.valid === false);
     }
 
-    // driver filter
-    if (driverFilter.value !== "all") {
-        filtered = filtered.filter(l => l.driver === driverFilter.value);
+    // Driver filter
+    if (filterDriver.value !== "all") {
+        data = data.filter(l => l.driver === filterDriver.value);
     }
 
-    // sorting
+    // Sorting
     if (currentSort) {
-        filtered.sort((a, b) => {
+        data.sort((a, b) => {
             let x = a[currentSort];
             let y = b[currentSort];
             if (currentSort === "lap_time_ms" || currentSort === "lap_count") {
@@ -120,13 +127,14 @@ function renderTable() {
         });
     }
 
-    filtered.forEach(item => {
+    // Build rows
+    data.forEach(item => {
         const tr = document.createElement("tr");
         tr.className = item.valid ? "valid" : "invalid";
         tr.innerHTML = `
-            <td>${item.driver ?? "-"}</td>
-            <td>${item.car ?? "-"}</td>
-            <td>${item.track ?? "-"}</td>
+            <td>${item.driver}</td>
+            <td>${item.car}</td>
+            <td>${item.track}</td>
             <td>${formatMs(item.lap_time_ms)}</td>
             <td>${item.lap_count}</td>
             <td>${item.valid}</td>
@@ -136,48 +144,55 @@ function renderTable() {
     });
 }
 
-// ----------------------------
-// SORTING EVENTS
-// ----------------------------
+// ---------------------------------------------------
+// Sorting handler
+// ---------------------------------------------------
 document.querySelectorAll("th[data-sort]").forEach(th => {
+    th.style.cursor = "pointer";
+
     th.addEventListener("click", () => {
         const key = th.dataset.sort;
-
         if (currentSort === key) {
             sortDirection *= -1;
         } else {
             currentSort = key;
             sortDirection = 1;
         }
-
-        renderTable();
+        renderFullTable();
     });
 });
 
-// ----------------------------
-// REFRESH EVERY 5 MINUTES
-// ----------------------------
-loadData();
-setInterval(loadData, 5 * 60 * 1000); // 5 minutes
+// ---------------------------------------------------
+// Filters
+// ---------------------------------------------------
+filterDriver.addEventListener("change", renderFullTable);
+filterValidity.addEventListener("change", renderFullTable);
 
-// ----------------------------
-// VERSION BOX (GitHub commit)
-// ----------------------------
-async function updateVersionBox() {
-    try {
-        const res = await fetch("https://api.github.com/repos/HenriksDream/Racingwebsite/commits/main");
-        const data = await res.json();
+// ---------------------------------------------------
+// Run once immediately
+// ---------------------------------------------------
+loadData(true);
 
-        const shortHash = data.sha.substring(0, 7);
-        const date = new Date(data.commit.author.date)
-            .toISOString()
-            .split("T")[0];
+// ---------------------------------------------------
+// Silent refresh every 5 minutes
+// ---------------------------------------------------
+setInterval(async () => {
+    console.log("Silent refresh…");
+    const prev = {
+        validity: filterValidity.value,
+        driver: filterDriver.value,
+        sort: currentSort,
+        dir: sortDirection
+    };
 
-        document.getElementById("version").textContent =
-            `build ${shortHash} (${date})`;
-    } catch (err) {
-        document.getElementById("version").textContent = "build ???";
-    }
-}
+    await loadData(false); // silent
 
-updateVersionBox();
+    filterValidity.value = prev.validity;
+    filterDriver.value = prev.driver;
+    currentSort = prev.sort;
+    sortDirection = prev.dir;
+
+    renderFastestLaps();
+    renderFullTable();
+
+}, 5 * 60 * 1000);

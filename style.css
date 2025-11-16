@@ -1,62 +1,46 @@
 body {
-    background: #111;
-    color: #eee;
+    background-color: #111;
+    color: white;
     font-family: Arial, sans-serif;
     margin: 20px;
 }
 
-h1, h2 {
-    text-align: center;
-    color: #fff;
+#version-box {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    color: #ccc;
+    font-size: 14px;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
 }
 
 th, td {
-    padding: 10px;
-    text-align: left;
+    padding: 8px;
 }
 
 th {
-    background: #333;
-    cursor: pointer;
+    background-color: #333;
 }
 
-tr.valid {
-    background: #003300;
+.valid {
+    background-color: #003500;
 }
 
-tr.invalid {
-    background: #330000;
+.invalid {
+    background-color: #330000;
 }
 
-/* Controls */
-.controls {
-    margin: 10px 0;
-    display: flex;
-    gap: 20px;
-    justify-content: center;
+#filters {
+    margin: 15px 0;
 }
 
-label {
-    color: #fff;
-}
-
-/* Version box (top-right corner) */
-#version {
-    position: fixed;
-    top: 15px;
-    right: 20px;
-    background: rgba(255,255,255,0.08);
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    color: #ccc;
-    border: 1px solid rgba(255,255,255,0.15);
-    backdrop-filter: blur(3px);
-    z-index: 9999;
+hr {
+    border: 0;
+    border-top: 1px solid #333;
+    margin: 20px 0;
 }
