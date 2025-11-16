@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8080/laptimes.json";
+const API_URL = "https://api.racinggamers.se/laptimes.json";
 
 const statusBox = document.getElementById("status");
 const tableBody = document.querySelector("#laps-table tbody");
