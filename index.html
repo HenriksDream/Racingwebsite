@@ -9,17 +9,48 @@
 
 <h1>RacingGamers — Live Laptimes</h1>
 
+<!-- =======================
+     FASTEST VALID LAPS
+======================== -->
+<h2>Fastest Valid Laps (Per Driver)</h2>
+<table id="fastest-table">
+    <thead>
+        <tr>
+            <th>Driver</th>
+            <th>Best Lap</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<hr>
+
+<!-- =======================
+     FILTER CONTROLS
+======================== -->
 <div id="controls">
-    <label>Filter: </label>
+    <label>Filter Validity: </label>
     <select id="filter-validity">
         <option value="all">All laps</option>
         <option value="valid">Valid only</option>
         <option value="invalid">Invalid only</option>
     </select>
+
+    &nbsp;&nbsp;
+
+    <label>Driver: </label>
+    <select id="filter-driver">
+        <option value="all">All drivers</option>
+    </select>
 </div>
 
 <div id="status"></div>
 
+<!-- =======================
+     ALL LAP TIMES TABLE
+======================== -->
+<h2>All Laps</h2>
 <table id="laps-table">
     <thead>
         <tr>

@@ -2,26 +2,23 @@ body {
     font-family: Arial, sans-serif;
     background: #111;
     color: #eee;
-    margin: 0;
     padding: 20px;
 }
 
-h1 {
+h1, h2 {
     text-align: center;
-    margin-bottom: 20px;
 }
 
-#status {
+#controls {
     text-align: center;
-    margin-bottom: 15px;
-    font-size: 14px;
-    color: #ccc;
+    margin: 20px 0;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
     background: #222;
+    margin-bottom: 25px;
 }
 
 thead {
@@ -30,7 +27,6 @@ thead {
 
 th, td {
     padding: 10px;
-    text-align: left;
     border-bottom: 1px solid #444;
 }
 
@@ -42,18 +38,7 @@ tr.invalid {
     background: #331a1a;
 }
 
-@media (max-width: 600px) {
-    table, thead, tbody, th, td, tr {
-        display: block;
-    }
-
-    th {
-        position: absolute;
-        left: -9999px;
-    }
-
-    td {
-        padding: 10px;
-        border-bottom: 1px solid #333;
-    }
+hr {
+    margin: 30px 0;
+    border-color: #444;
 }

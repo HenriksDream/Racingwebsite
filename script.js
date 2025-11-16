@@ -2,132 +2,144 @@ const API_URL = "https://api.racinggamers.se/laptimes.json";
 
 const statusBox = document.getElementById("status");
 const tableBody = document.querySelector("#laps-table tbody");
+const fastestBody = document.querySelector("#fastest-table tbody");
 const filterSelect = document.getElementById("filter-validity");
+const driverSelect = document.getElementById("filter-driver");
 
-let allLaps = [];           // Full dataset from API
-let currentSort = null;     // Column name
-let sortDirection = 1;      // 1 = ASC, -1 = DESC
+let allLaps = [];
+let currentSort = null;
+let sortDirection = 1;
 
-// -------------------------
-// Format milliseconds → "1:23.456"
-// -------------------------
+// Format ms -> 1:23.456
 function formatMs(ms) {
     if (!ms) return "-";
-    let totalSeconds = Math.floor(ms / 1000);
-    let minutes = Math.floor(totalSeconds / 60);
-    let seconds = totalSeconds % 60;
+    let total = Math.floor(ms / 1000);
+    let min = Math.floor(total / 60);
+    let sec = total % 60;
     let milli = ms % 1000;
-
-    return `${minutes}:${seconds.toString().padStart(2, "0")}.${milli.toString().padStart(3, "0")}`;
+    return `${min}:${sec.toString().padStart(2,"0")}.${milli.toString().padStart(3,"0")}`;
 }
 
-// -------------------------
-// FETCH FROM API
-// -------------------------
 async function loadData() {
     try {
         statusBox.textContent = "Loading…";
-
         const response = await fetch(API_URL);
         if (!response.ok) throw new Error("API error");
 
         allLaps = await response.json();
         statusBox.textContent = "";
 
-        renderTable();
+        populateDriverFilter();
+        renderFastestTable();
+        renderFullTable();
 
-    } catch (error) {
-        console.error(error);
+    } catch (err) {
         statusBox.textContent = "Error fetching data";
     }
 }
 
-// -------------------------
-// RENDER TABLE (WITH FILTER & SORT)
-// -------------------------
-function renderTable() {
-    tableBody.innerHTML = "";
+// ---------------------
+// DRIVER DROPDOWN
+// ---------------------
+function populateDriverFilter() {
+    let drivers = [...new Set(allLaps.map(l => l.driver))].sort();
+    driverSelect.innerHTML = `<option value="all">All drivers</option>`;
+    drivers.forEach(d => {
+        driverSelect.innerHTML += `<option value="${d}">${d}</option>`;
+    });
+}
 
+// ---------------------
+// FASTEST VALID LAP PER DRIVER
+// ---------------------
+function renderFastestTable() {
+    fastestBody.innerHTML = "";
+
+    // Only valid laps
+    const valid = allLaps.filter(l => l.valid);
+
+    // Group by driver
+    const best = {};
+
+    valid.forEach(l => {
+        if (!best[l.driver] || l.lap_time_ms < best[l.driver].lap_time_ms) {
+            best[l.driver] = l;
+        }
+    });
+
+    // Convert back into list + sort by lap time
+    const fastestList = Object.values(best).sort((a,b)=>a.lap_time_ms - b.lap_time_ms);
+
+    fastestList.forEach(l => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${l.driver}</td>
+            <td>${formatMs(l.lap_time_ms)}</td>
+            <td>${l.date}</td>
+        `;
+        fastestBody.appendChild(tr);
+    });
+}
+
+// ---------------------
+// FULL TABLE
+// ---------------------
+function renderFullTable() {
+    tableBody.innerHTML = "";
     let filtered = allLaps;
 
     // Apply validity filter
-    const filterValue = filterSelect.value;
-    if (filterValue === "valid") {
-        filtered = filtered.filter(l => l.valid === true);
-    } else if (filterValue === "invalid") {
-        filtered = filtered.filter(l => l.valid === false);
+    if (filterSelect.value === "valid") filtered = filtered.filter(l=>l.valid);
+    if (filterSelect.value === "invalid") filtered = filtered.filter(l=>!l.valid);
+
+    // Apply driver filter
+    if (driverSelect.value !== "all") {
+        filtered = filtered.filter(l => l.driver === driverSelect.value);
     }
 
-    // Apply sorting
+    // Sorting
     if (currentSort) {
-        filtered.sort((a, b) => {
-            let x = a[currentSort];
-            let y = b[currentSort];
+        filtered.sort((a,b)=>{
+            if (currentSort === "lap_time_ms" || currentSort === "lap_count")
+                return (a[currentSort] - b[currentSort]) * sortDirection;
 
-            // numeric sort for lap time
-            if (currentSort === "lap_time_ms" || currentSort === "lap_count") {
-                return (x - y) * sortDirection;
-            }
+            if (currentSort === "date")
+                return (new Date(a.date) - new Date(b.date)) * sortDirection;
 
-            // sort timestamp
-            if (currentSort === "date") {
-                return (new Date(x) - new Date(y)) * sortDirection;
-            }
-
-            // string sort
-            return x.toString().localeCompare(y.toString()) * sortDirection;
+            return a[currentSort].localeCompare(b[currentSort]) * sortDirection;
         });
     }
 
-    // Build all rows
-    filtered.forEach(item => {
+    filtered.forEach(l => {
         const tr = document.createElement("tr");
-        tr.className = item.valid ? "valid" : "invalid";
-
+        tr.className = l.valid ? "valid" : "invalid";
         tr.innerHTML = `
-            <td>${item.driver ?? "-"}</td>
-            <td>${item.car ?? "-"}</td>
-            <td>${item.track ?? "-"}</td>
-            <td>${formatMs(item.lap_time_ms)}</td>
-            <td>${item.lap_count ?? "-"}</td>
-            <td>${item.valid}</td>
-            <td>${item.date ?? "-"}</td>
+            <td>${l.driver}</td>
+            <td>${l.car}</td>
+            <td>${l.track}</td>
+            <td>${formatMs(l.lap_time_ms)}</td>
+            <td>${l.lap_count}</td>
+            <td>${l.valid}</td>
+            <td>${l.date}</td>
         `;
-
         tableBody.appendChild(tr);
     });
 }
 
-// -------------------------
-// SORTING HANDLER
-// -------------------------
+// Sorting click handlers
 document.querySelectorAll("th[data-sort]").forEach(th => {
-    th.style.cursor = "pointer";
-
     th.addEventListener("click", () => {
-        const sortKey = th.dataset.sort;
-
-        // Toggle direction if sorting same column
-        if (currentSort === sortKey) {
-            sortDirection *= -1;
-        } else {
-            currentSort = sortKey;
-            sortDirection = 1;
-        }
-
-        renderTable();
+        const key = th.dataset.sort;
+        if (currentSort === key) sortDirection *= -1;
+        else { currentSort = key; sortDirection = 1; }
+        renderFullTable();
     });
 });
 
-// -------------------------
-// FILTER CHANGE HANDLER
-// -------------------------
-filterSelect.addEventListener("change", () => {
-    renderTable();
-});
+// Filter events
+filterSelect.addEventListener("change", renderFullTable);
+driverSelect.addEventListener("change", renderFullTable);
 
-// -------------------------
-// INITIAL LOAD + REFRESH LOOP
-// -------------------------
+// Initial + auto refresh
 loadData();
 setInterval(loadData, 3000);
