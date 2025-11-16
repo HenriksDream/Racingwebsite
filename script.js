@@ -1,190 +1,183 @@
-// =======================================
+// ----------------------------
 // CONFIG
-// =======================================
+// ----------------------------
 const API_URL = "https://api.racinggamers.se/laptimes.json";
 
 const statusBox = document.getElementById("status");
-
-// TOP TABLE
-const fastestBody = document.querySelector("#fastest-table tbody");
-
-// MAIN TABLE
 const tableBody = document.querySelector("#laps-table tbody");
-
-const validityFilter = document.getElementById("filter-validity");
+const filterSelect = document.getElementById("filter-validity");
 const driverFilter = document.getElementById("filter-driver");
+
+const fastestBody = document.querySelector("#fastest-table tbody");
 
 let allLaps = [];
 let currentSort = null;
 let sortDirection = 1;
 
-// =======================================
-// HELPERS
-// =======================================
+// ----------------------------
+// FORMAT LAP TIME
+// ----------------------------
 function formatMs(ms) {
     if (!ms) return "-";
     let totalSeconds = Math.floor(ms / 1000);
     let minutes = Math.floor(totalSeconds / 60);
     let seconds = totalSeconds % 60;
     let milli = ms % 1000;
-
     return `${minutes}:${seconds.toString().padStart(2, "0")}.${milli.toString().padStart(3, "0")}`;
 }
 
-// =======================================
+// ----------------------------
 // LOAD DATA FROM API
-// =======================================
+// ----------------------------
 async function loadData() {
     try {
-        statusBox.textContent = "Loading…";
-
         const response = await fetch(API_URL);
-        if (!response.ok) throw new Error("API error");
+        if (!response.ok) throw new Error("API failed");
 
         allLaps = await response.json();
-        statusBox.textContent = "";
-
-        populateDriverDropdown();
-        renderFastestTable();
-        renderMainTable();
-
-    } catch (error) {
-        console.error(error);
-        statusBox.textContent = "Error fetching data";
+        updateDriverFilter();
+        renderFastest();
+        renderTable();
+    } catch (e) {
+        console.error(e);
     }
 }
 
-// =======================================
-// DRIVER DROPDOWN
-// =======================================
-function populateDriverDropdown() {
-    let drivers = [...new Set(allLaps.map(l => l.driver))];
+// ----------------------------
+// BUILD DRIVER DROPDOWN
+// ----------------------------
+function updateDriverFilter() {
+    const drivers = [...new Set(allLaps.map(l => l.driver).filter(Boolean))];
 
     driverFilter.innerHTML = `<option value="all">All drivers</option>`;
-
     drivers.forEach(d => {
-        let opt = document.createElement("option");
+        const opt = document.createElement("option");
         opt.value = d;
         opt.textContent = d;
         driverFilter.appendChild(opt);
     });
 }
 
-// =======================================
+// ----------------------------
 // FASTEST VALID LAP PER DRIVER
-// =======================================
-function renderFastestTable() {
+// ----------------------------
+function renderFastest() {
     fastestBody.innerHTML = "";
 
-    const validLaps = allLaps.filter(l => l.valid);
+    const fastest = {};
 
-    let bestPerDriver = {};
+    allLaps.forEach(lap => {
+        if (!lap.valid) return;
 
-    validLaps.forEach(lap => {
-        const d = lap.driver;
-
-        // If no best stored yet OR this is faster → update
-        if (!bestPerDriver[d] || lap.lap_time_ms < bestPerDriver[d].lap_time_ms) {
-            bestPerDriver[d] = lap;
+        if (!fastest[lap.driver] || lap.lap_time_ms < fastest[lap.driver].lap_time_ms) {
+            fastest[lap.driver] = lap;
         }
     });
 
-    // build table rows
-    Object.values(bestPerDriver)
-        .sort((a, b) => a.lap_time_ms - b.lap_time_ms)
-        .forEach(l => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${l.driver}</td>
-                <td>${formatMs(l.lap_time_ms)}</td>
-                <td>${l.date}</td>
-            `;
-            fastestBody.appendChild(tr);
-        });
+    Object.entries(fastest).forEach(([driver, lap]) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${driver}</td>
+            <td>${formatMs(lap.lap_time_ms)}</td>
+            <td>${lap.date}</td>
+        `;
+        fastestBody.appendChild(tr);
+    });
 }
 
-// =======================================
-// MAIN TABLE (All laps)
-// =======================================
-function renderMainTable() {
+// ----------------------------
+// RENDER ALL LAPS TABLE
+// ----------------------------
+function renderTable() {
     tableBody.innerHTML = "";
 
-    let filtered = [...allLaps];
+    let filtered = allLaps;
 
-    // Validity filter
-    const v = validityFilter.value;
-    if (v === "valid") filtered = filtered.filter(l => l.valid === true);
-    if (v === "invalid") filtered = filtered.filter(l => l.valid === false);
+    // validity filter
+    if (filterSelect.value === "valid") {
+        filtered = filtered.filter(l => l.valid === true);
+    } else if (filterSelect.value === "invalid") {
+        filtered = filtered.filter(l => l.valid === false);
+    }
 
-    // Driver filter
-    const d = driverFilter.value;
-    if (d !== "all") filtered = filtered.filter(l => l.driver === d);
+    // driver filter
+    if (driverFilter.value !== "all") {
+        filtered = filtered.filter(l => l.driver === driverFilter.value);
+    }
 
-    // Sorting
+    // sorting
     if (currentSort) {
         filtered.sort((a, b) => {
-            const x = a[currentSort];
-            const y = b[currentSort];
-
-            if (currentSort === "lap_time_ms" || currentSort === "lap_count" || currentSort === "session_time_ms") {
+            let x = a[currentSort];
+            let y = b[currentSort];
+            if (currentSort === "lap_time_ms" || currentSort === "lap_count") {
                 return (x - y) * sortDirection;
             }
-
             if (currentSort === "date") {
                 return (new Date(x) - new Date(y)) * sortDirection;
             }
-
             return x.toString().localeCompare(y.toString()) * sortDirection;
         });
     }
 
-    // Build rows
     filtered.forEach(item => {
         const tr = document.createElement("tr");
         tr.className = item.valid ? "valid" : "invalid";
-
         tr.innerHTML = `
-            <td>${item.driver}</td>
-            <td>${item.car}</td>
-            <td>${item.track}</td>
+            <td>${item.driver ?? "-"}</td>
+            <td>${item.car ?? "-"}</td>
+            <td>${item.track ?? "-"}</td>
             <td>${formatMs(item.lap_time_ms)}</td>
             <td>${item.lap_count}</td>
             <td>${item.valid}</td>
             <td>${item.date}</td>
         `;
-
         tableBody.appendChild(tr);
     });
 }
 
-// =======================================
-// SORTING HANDLERS
-// =======================================
+// ----------------------------
+// SORTING EVENTS
+// ----------------------------
 document.querySelectorAll("th[data-sort]").forEach(th => {
-    th.style.cursor = "pointer";
-
     th.addEventListener("click", () => {
-        const sortKey = th.dataset.sort;
+        const key = th.dataset.sort;
 
-        if (currentSort === sortKey) {
+        if (currentSort === key) {
             sortDirection *= -1;
         } else {
-            currentSort = sortKey;
+            currentSort = key;
             sortDirection = 1;
         }
 
-        renderMainTable();
+        renderTable();
     });
 });
 
-// =======================================
-// FILTER LISTENERS
-// =======================================
-validityFilter.addEventListener("change", renderMainTable);
-driverFilter.addEventListener("change", renderMainTable);
-
-// =======================================
-// AUTO REFRESH
-// =======================================
+// ----------------------------
+// REFRESH EVERY 5 MINUTES
+// ----------------------------
 loadData();
-setInterval(loadData, 4000);
+setInterval(loadData, 5 * 60 * 1000); // 5 minutes
+
+// ----------------------------
+// VERSION BOX (GitHub commit)
+// ----------------------------
+async function updateVersionBox() {
+    try {
+        const res = await fetch("https://api.github.com/repos/HenriksDream/Racingwebsite/commits/main");
+        const data = await res.json();
+
+        const shortHash = data.sha.substring(0, 7);
+        const date = new Date(data.commit.author.date)
+            .toISOString()
+            .split("T")[0];
+
+        document.getElementById("version").textContent =
+            `build ${shortHash} (${date})`;
+    } catch (err) {
+        document.getElementById("version").textContent = "build ???";
+    }
+}
+
+updateVersionBox();

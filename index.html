@@ -1,71 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RacingGamers — Live Laptimes</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+    <!-- Version box -->
+    <div id="version">Loading…</div>
 
-<h1>RacingGamers — Live Laptimes</h1>
+    <h1>RacingGamers — Live Laptimes</h1>
 
-<!-- =======================
-     FASTEST VALID LAPS
-======================== -->
-<h2>Fastest Valid Laps (Per Driver)</h2>
-<table id="fastest-table">
-    <thead>
-        <tr>
-            <th>Driver</th>
-            <th>Best Lap</th>
-            <th>Timestamp</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
+    <h2>Fastest Valid Laps (Per Driver)</h2>
+    <table id="fastest-table">
+        <thead>
+            <tr>
+                <th>Driver</th>
+                <th>Best Lap</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
-<hr>
+    <hr />
 
-<!-- =======================
-     FILTER CONTROLS
-======================== -->
-<div id="controls">
-    <label>Filter Validity: </label>
-    <select id="filter-validity">
-        <option value="all">All laps</option>
-        <option value="valid">Valid only</option>
-        <option value="invalid">Invalid only</option>
-    </select>
+    <div class="controls">
+        <label>
+            Filter Validity:
+            <select id="filter-validity">
+                <option value="all">All laps</option>
+                <option value="valid">Valid only</option>
+                <option value="invalid">Invalid only</option>
+            </select>
+        </label>
 
-    &nbsp;&nbsp;
+        <label>
+            Driver:
+            <select id="filter-driver">
+                <option value="all">All drivers</option>
+            </select>
+        </label>
+    </div>
 
-    <label>Driver: </label>
-    <select id="filter-driver">
-        <option value="all">All drivers</option>
-    </select>
-</div>
+    <h2>All Laps</h2>
+    <table id="laps-table">
+        <thead>
+            <tr>
+                <th data-sort="driver">Driver</th>
+                <th data-sort="car">Car</th>
+                <th data-sort="track">Track</th>
+                <th data-sort="lap_time_ms">Lap Time</th>
+                <th data-sort="lap_count">Lap</th>
+                <th data-sort="valid">Valid</th>
+                <th data-sort="date">Timestamp</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
-<div id="status"></div>
-
-<!-- =======================
-     ALL LAP TIMES TABLE
-======================== -->
-<h2>All Laps</h2>
-<table id="laps-table">
-    <thead>
-        <tr>
-            <th data-sort="driver">Driver</th>
-            <th data-sort="car">Car</th>
-            <th data-sort="track">Track</th>
-            <th data-sort="lap_time_ms" class="sortable">Lap Time</th>
-            <th data-sort="lap_count" class="sortable">Lap</th>
-            <th data-sort="valid">Valid</th>
-            <th data-sort="date" class="sortable">Timestamp</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
