@@ -15,262 +15,142 @@ let allLaps = [];
 let currentSort = null;
 let sortDirection = 1;
 
-// Friendly name mapping
-const TRACK_NAMES = {
-    "ks_brands_hatch-gp": "Brands Hatch GP",
-};
-
-const CAR_NAMES = {
-    "lotus_exos_125_s1": "Lotus Exos 125",
-};
-
 // ---------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------
-function friendlyCar(id) {
-    return CAR_NAMES[id] ?? id;
-}
-
-function friendlyTrack(id) {
-    return TRACK_NAMES[id] ?? id;
-}
-
 function formatMs(ms) {
-    if (ms == null) return "-";
-    let m = Math.floor(ms / 60000);
-    let s = Math.floor((ms % 60000) / 1000);
-    let msPart = ms % 1000;
-    return `${m}:${s.toString().padStart(2, "0")}.${msPart.toString().padStart(3, "0")}`;
+    if (!ms && ms !== 0) return "-";
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const millis = ms % 1000;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}.${millis.toString().padStart(3, "0")}`;
 }
 
-// ---------------------------------------------------------
-// Load data
-// ---------------------------------------------------------
-async function loadData(showLoading = true) {
-    try {
-        if (showLoading) statusBox.textContent = "Loading…";
-
-        const response = await fetch(API_URL + `?nocache=${Date.now()}`, {
-            method: "GET",
-            mode: "cors"
-        });
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        allLaps = await response.json();
-
-        if (showLoading) statusBox.textContent = "";
-
-        renderTrackList();
-        renderDriverList();
-        renderFastestLaps();
-        renderFullTable();
-
-        document.getElementById("last-updated").textContent =
-            "Last updated: " + new Date().toLocaleTimeString();
-
-        document.getElementById("version").textContent = "v1.6 — OK";
-
-    } catch (err) {
-        console.error(err);
-        statusBox.textContent = "Error fetching data";
-        document.getElementById("version").textContent = "v1.6 — ERROR";
-    }
-}
-
-// ---------------------------------------------------------
-// Track dropdown
-// ---------------------------------------------------------
-function renderTrackList() {
-    const tracks = [...new Set(allLaps.map(l => l.track))].sort();
-
-    filterTrack.innerHTML = "";
-    tracks.forEach(t => {
-        const nice = friendlyTrack(t);
-        filterTrack.innerHTML += `<option value="${t}">${nice}</option>`;
-    });
-
-    // Default track
-    if (!filterTrack.value) {
-        filterTrack.value = "ks_brands_hatch-gp";
-    }
-}
-
-// ---------------------------------------------------------
-// Driver dropdown
-// ---------------------------------------------------------
-function renderDriverList() {
+function updateFilters() {
     const drivers = [...new Set(allLaps.map(l => l.driver))].sort();
+    const tracks = [...new Set(allLaps.map(l => l.track_name))].sort();
 
-    filterDriver.innerHTML = `<option value="all">All drivers</option>`;
-    drivers.forEach(d =>
-        filterDriver.innerHTML += `<option value="${d}">${d}</option>`
-    );
+    filterDriver.innerHTML = `<option value="all">All</option>` +
+        drivers.map(d => `<option value="${d}">${d}</option>`).join("");
+
+    filterTrack.innerHTML = `<option value="all">All</option>` +
+        tracks.map(t => `<option value="${t}">${t}</option>`).join("");
+}
+
+function passesFilters(lap) {
+    if (filterValidity.value !== "all") {
+        if (filterValidity.value === "true" && !lap.valid) return false;
+        if (filterValidity.value === "false" && lap.valid) return false;
+    }
+
+    if (filterDriver.value !== "all" && lap.driver !== filterDriver.value)
+        return false;
+
+    if (filterTrack.value !== "all" && lap.track_name !== filterTrack.value)
+        return false;
+
+    return true;
 }
 
 // ---------------------------------------------------------
-// Fastest laps per driver
+// FASTEST PER TRACK
 // ---------------------------------------------------------
-function renderFastestLaps() {
-    fastestBody.innerHTML = "";
-
-    const selectedTrack = filterTrack.value;
-
-    const valid = allLaps.filter(l => l.valid && l.track === selectedTrack);
-
+function redrawFastest() {
     const best = {};
-    valid.forEach(l => {
-        if (!best[l.driver] || l.lap_time_ms < best[l.driver].lap_time_ms) {
-            best[l.driver] = l;
+
+    for (const lap of allLaps) {
+        if (!lap.valid) continue;
+        if (!passesFilters(lap)) continue;
+
+        if (!best[lap.track_name] || lap.lap_time_ms < best[lap.track_name].lap_time_ms) {
+            best[lap.track_name] = lap;
         }
-    });
-
-    Object.values(best)
-        .sort((a, b) => a.lap_time_ms - b.lap_time_ms)
-        .forEach(l => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${l.driver}</td>
-                <td>${friendlyCar(l.car)}</td>
-                <td>${formatMs(l.lap_time_ms)}</td>
-                <td>${l.date}</td>
-            `;
-            fastestBody.appendChild(tr);
-        });
-}
-
-// ---------------------------------------------------------
-// Full table
-// ---------------------------------------------------------
-function renderFullTable() {
-    tableBody.innerHTML = "";
-    let data = [...allLaps];
-
-    const selectedTrack = filterTrack.value;
-
-    // Track filter
-    data = data.filter(l => l.track === selectedTrack);
-
-    // Validity filter
-    if (filterValidity.value === "valid") {
-        data = data.filter(l => l.valid);
-    } else if (filterValidity.value === "invalid") {
-        data = data.filter(l => !l.valid);
     }
 
-    // Driver
-    if (filterDriver.value !== "all") {
-        data = data.filter(l => l.driver === filterDriver.value);
-    }
-
-    // NEW: No laps message
-    if (data.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" style="text-align:center; opacity:0.7;">
-                    No valid laps set for this track yet
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    // Sorting
-    if (currentSort) {
-        data.sort((a, b) => {
-            let x = a[currentSort];
-            let y = b[currentSort];
-
-            if (currentSort === "lap_time_ms" || currentSort === "lap_count") {
-                return (x - y) * sortDirection;
-            }
-
-            if (currentSort === "date") {
-                return (new Date(x) - new Date(y)) * sortDirection;
-            }
-
-            return x.toString().localeCompare(y.toString()) * sortDirection;
-        });
-    }
-
-    // Render table rows
-    data.forEach(l => {
-        const tr = document.createElement("tr");
-        tr.className = l.valid ? "valid" : "invalid";
-        tr.innerHTML = `
+    fastestBody.innerHTML = Object.values(best)
+        .map(l => `
+        <tr>
             <td>${l.driver}</td>
-            <td>${friendlyCar(l.car)}</td>
-            <td>${friendlyTrack(l.track)}</td>
+            <td>${l.track_name}</td>
+            <td>${l.car_name}</td>
             <td>${formatMs(l.lap_time_ms)}</td>
-            <td>${l.lap_count}</td>
-            <td>${l.valid ? "Yes" : "No"}</td>
-            <td>${l.date}</td>
-        `;
-        tableBody.appendChild(tr);
-    });
+        </tr>
+    `)
+        .join("");
 }
 
 // ---------------------------------------------------------
-// Sorting handler
+// MAIN TABLE
+// ---------------------------------------------------------
+function redrawTable() {
+    let laps = allLaps.filter(passesFilters);
+
+    if (currentSort) {
+        laps.sort((a, b) => {
+            const A = a[currentSort];
+            const B = b[currentSort];
+            if (A < B) return -1 * sortDirection;
+            if (A > B) return 1 * sortDirection;
+            return 0;
+        });
+    }
+
+    tableBody.innerHTML = laps.map(l => `
+        <tr>
+            <td>${l.driver}</td>
+            <td>${l.track_name}</td>
+            <td>${l.car_name}</td>
+            <td>${formatMs(l.lap_time_ms)}</td>
+            <td>${l.date}</td>
+            <td>${l.cuts}</td>
+            <td class="${l.valid ? "valid-true" : "valid-false"}">${l.valid}</td>
+            <td>${l.s1 ?? "-"}</td>
+            <td>${l.s2 ?? "-"}</td>
+            <td>${l.s3 ?? "-"}</td>
+        </tr>
+    `).join("");
+}
+
+// ---------------------------------------------------------
+// Sorting
 // ---------------------------------------------------------
 document.querySelectorAll("th[data-sort]").forEach(th => {
-    th.style.cursor = "pointer";
     th.addEventListener("click", () => {
-        const key = th.dataset.sort;
-        if (currentSort === key) sortDirection *= -1;
+        const field = th.getAttribute("data-sort");
+
+        if (currentSort === field) sortDirection *= -1;
         else {
-            currentSort = key;
+            currentSort = field;
             sortDirection = 1;
         }
-        renderFullTable();
+        redrawTable();
     });
 });
 
 // ---------------------------------------------------------
-// Event hooks
+// INIT
 // ---------------------------------------------------------
-filterValidity.addEventListener("change", () => {
-    renderFastestLaps();
-    renderFullTable();
-});
+async function load() {
+    try {
+        statusBox.textContent = "Loading from server…";
 
-filterDriver.addEventListener("change", () => {
-    renderFastestLaps();
-    renderFullTable();
-});
+        const res = await fetch(API_URL);
+        allLaps = await res.json();
 
-filterTrack.addEventListener("change", () => {
-    renderDriverList();
-    renderFastestLaps();
-    renderFullTable();
-});
+        updateFilters();
+        redrawTable();
+        redrawFastest();
 
-// ---------------------------------------------------------
-// Initial load
-// ---------------------------------------------------------
-loadData(true);
+        statusBox.textContent = "Loaded";
+    } catch (err) {
+        statusBox.textContent = "Error loading API";
+        console.error(err);
+    }
+}
 
-// ---------------------------------------------------------
-// Auto-refresh every 5 minutes
-// ---------------------------------------------------------
-setInterval(async () => {
-    const prev = {
-        track: filterTrack.value,
-        driver: filterDriver.value,
-        validity: filterValidity.value,
-        sort: currentSort,
-        dir: sortDirection
-    };
+filterValidity.onchange = filterDriver.onchange = filterTrack.onchange = () => {
+    redrawTable();
+    redrawFastest();
+};
 
-    await loadData(false);
-
-    filterTrack.value = prev.track;
-    filterDriver.value = prev.driver;
-    filterValidity.value = prev.validity;
-    currentSort = prev.sort;
-    sortDirection = prev.dir;
-
-    renderFastestLaps();
-    renderFullTable();
-
-}, 300000);
+load();

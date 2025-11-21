@@ -1,12 +1,43 @@
 body {
-    background: #111;
-    color: #fff;
     font-family: Arial, sans-serif;
-    margin: 20px;
+    background: #111;
+    color: #eee;
+    margin: 0;
+    padding: 0;
 }
 
-h1, h2 {
-    color: #fff;
+header {
+    background: #222;
+    padding: 15px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+h1 {
+    margin: 0 0 5px 0;
+    font-size: 24px;
+}
+
+#status {
+    color: #ccc;
+    font-size: 14px;
+}
+
+section {
+    padding: 20px;
+}
+
+#filters label {
+    margin-right: 20px;
+    font-size: 14px;
+}
+
+select {
+    padding: 5px;
+    background: #222;
+    color: #eee;
+    border: 1px solid #444;
 }
 
 table {
@@ -15,42 +46,30 @@ table {
     margin-top: 10px;
 }
 
-table thead {
-    background: #222;
-}
-
-table th, table td {
-    padding: 10px;
+th, td {
+    padding: 8px 10px;
     border-bottom: 1px solid #333;
 }
 
-.valid {
-    background: #0a0a0a;
+th {
+    cursor: pointer;
+    background: #222;
+    position: sticky;
+    top: 45px;
 }
 
-.invalid {
-    background: #200a0a;
+tr:nth-child(even) {
+    background: #181818;
 }
 
-.filters {
-    margin: 10px 0;
+tr:hover {
+    background: #252525;
 }
 
-#status {
-    margin: 10px 0;
-    color: red;
-    font-weight: bold;
+.valid-true {
+    color: #6f6;
 }
 
-#version {
-    position: absolute;
-    top: 10px;
-    right: 20px;
-    opacity: 0.7;
-}
-
-#last-updated {
-    margin-top: 15px;
-    font-size: 12px;
-    opacity: 0.7;
+.valid-false {
+    color: #f66;
 }
