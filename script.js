@@ -90,7 +90,7 @@ function renderTrackList() {
         filterTrack.innerHTML += `<option value="${t}">${nice}</option>`;
     });
 
-    // default track:
+    // Default track
     if (!filterTrack.value) {
         filterTrack.value = "ks_brands_hatch-gp";
     }
@@ -151,7 +151,7 @@ function renderFullTable() {
     // Track filter
     data = data.filter(l => l.track === selectedTrack);
 
-    // Validity
+    // Validity filter
     if (filterValidity.value === "valid") {
         data = data.filter(l => l.valid);
     } else if (filterValidity.value === "invalid") {
@@ -161,6 +161,18 @@ function renderFullTable() {
     // Driver
     if (filterDriver.value !== "all") {
         data = data.filter(l => l.driver === filterDriver.value);
+    }
+
+    // NEW: No laps message
+    if (data.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align:center; opacity:0.7;">
+                    No valid laps set for this track yet
+                </td>
+            </tr>
+        `;
+        return;
     }
 
     // Sorting
@@ -181,7 +193,7 @@ function renderFullTable() {
         });
     }
 
-    // Render
+    // Render table rows
     data.forEach(l => {
         const tr = document.createElement("tr");
         tr.className = l.valid ? "valid" : "invalid";
@@ -239,7 +251,7 @@ filterTrack.addEventListener("change", () => {
 loadData(true);
 
 // ---------------------------------------------------------
-// Auto-refresh every 5 minutes (preserving filters)
+// Auto-refresh every 5 minutes
 // ---------------------------------------------------------
 setInterval(async () => {
     const prev = {
