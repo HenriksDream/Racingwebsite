@@ -7,214 +7,231 @@ const statusBox = document.getElementById("status");
 const fastestBody = document.querySelector("#fastest-table tbody");
 const tableBody = document.querySelector("#laps-table tbody");
 
-const filterTrack = document.getElementById("filter-track");
 const filterValidity = document.getElementById("filter-validity");
 const filterDriver = document.getElementById("filter-driver");
+const filterTrack = document.getElementById("filter-track");
 
 let allLaps = [];
 let currentSort = null;
 let sortDirection = 1;
 
-const DEFAULT_TRACK = "ks_brands_hatch-gp";
-const DEFAULT_VALIDITY = "true";  // default load = valid only
+// Friendly name mapping
+const TRACK_NAMES = {
+    "ks_brands_hatch-gp": "Brands Hatch GP",
+};
 
+const CAR_NAMES = {
+    "lotus_exos_125_s1": "Lotus Exos 125",
+};
 
 // ---------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------
+function friendlyCar(id) {
+    return CAR_NAMES[id] ?? id;
+}
+
+function friendlyTrack(id) {
+    return TRACK_NAMES[id] ?? id;
+}
+
 function formatMs(ms) {
-    if (ms == null) return "-";
-    let total = Math.floor(ms);
-    let minutes = Math.floor(total / 60000);
-    let seconds = Math.floor((total % 60000) / 1000);
-    let milli = total % 1000;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}.${milli.toString().padStart(3, "0")}`;
+    if (ms == null || ms === 86400000) return null;
+    const total = ms / 1000;
+    const m = Math.floor(total / 60);
+    const s = Math.floor(total % 60);
+    const msPart = Math.floor((total % 1) * 1000).toString().padStart(3, "0");
+    return `${m}:${s.toString().padStart(2, "0")}.${msPart}`;
 }
 
-function sortLaps(laps) {
-    if (!currentSort) return laps;
-    return [...laps].sort((a, b) => {
-        let x = a[currentSort];
-        let y = b[currentSort];
-        if (typeof x === "string") x = x.toLowerCase();
-        if (typeof y === "string") y = y.toLowerCase();
-        if (x < y) return -1 * sortDirection;
-        if (x > y) return 1 * sortDirection;
-        return 0;
-    });
-}
-
-
-// ---------------------------------------------------------
-// Banner (NEW)
-// ---------------------------------------------------------
-function updateBanner() {
-    const banner = document.getElementById("current-banner");
-    const track = filterTrack.value;
-
-    const lap = allLaps.find(l => l.track_id === track);
-
-    const car = lap ? (lap.car_name ?? lap.car_id) : "unknown car";
-    const trackName = lap ? (lap.track_name ?? lap.track_id) : track;
-
-    banner.textContent = `Currently racing on ${trackName} in ${car}`;
-}
-
-
-// ---------------------------------------------------------
-// Filtering logic (Track → Valid → Driver)
-// ---------------------------------------------------------
-function applyFilters() {
-    updateBanner();  // NEW
-
-    let track = filterTrack.value;
-    let validity = filterValidity.value;
-
-    let filtered = allLaps;
-
-    // Track
-    if (track !== "all") {
-        filtered = filtered.filter(l => l.track_id === track);
-    }
-
-    // Validity
-    if (validity === "true") filtered = filtered.filter(l => l.valid === true);
-    else if (validity === "false") filtered = filtered.filter(l => l.valid === false);
-
-    // Rebuild drivers
-    rebuildDriverDropdown(filtered);
-
-    // Driver
-    const driver = filterDriver.value;
-    if (driver !== "all") {
-        filtered = filtered.filter(l => l.driver === driver);
-    }
-
-    renderFastest(filtered);
-    renderAllLaps(filtered);
-}
-
-
-function rebuildDriverDropdown(filteredLaps) {
-    const old = filterDriver.value;
-
-    const drivers = Array.from(new Set(filteredLaps.map(l => l.driver))).sort();
-
-    filterDriver.innerHTML = "<option value='all'>All</option>";
-
-    for (const d of drivers) {
-        const opt = document.createElement("option");
-        opt.value = d;
-        opt.textContent = d;
-        filterDriver.appendChild(opt);
-    }
-
-    if (drivers.includes(old)) {
-        filterDriver.value = old;
-    }
-}
-
-
-// ---------------------------------------------------------
-// Rendering
-// ---------------------------------------------------------
-function renderFastest(laps) {
-    fastestBody.innerHTML = "";
-
-    const best = {};
-    for (const l of laps) {
-        if (!best[l.driver] || l.lap_time_ms < best[l.driver].lap_time_ms) {
-            best[l.driver] = l;
+// Extract sectors from s0…s9
+function extractSectors(lap) {
+    const sectors = [];
+    for (let i = 0; i < 10; i++) {
+        const key = `s${i}`;
+        if (lap[key] != null) {
+            if (lap[key] !== 86400000) sectors.push(lap[key]);
+            else sectors.push(null);
         }
     }
 
-    const rows = Object.values(best).sort((a, b) => a.lap_time_ms - b.lap_time_ms);
-
-    for (const lap of rows) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${lap.driver}</td>
-            <td>${lap.car_name ?? lap.car_id}</td>
-            <td>${lap.track_name ?? lap.track_id}</td>
-            <td>${formatMs(lap.lap_time_ms)}</td>
-        `;
-        fastestBody.appendChild(tr);
+    // Cut trailing nulls (only consider leading sectors)
+    while (sectors.length && sectors[sectors.length - 1] === null) {
+        sectors.pop();
     }
+
+    return sectors;
 }
 
-function renderAllLaps(laps) {
-    tableBody.innerHTML = "";
+// Compute best per track + per driver
+function computeSectorBests(laps) {
+    const globalBest = {};  // track → sector index → ms
+    const driverBest = {};  // track → driver → sector index → ms
 
-    const sorted = sortLaps(laps);
+    for (const lap of laps) {
+        const sectors = lap.sectors;
+        if (!sectors.length) continue;
 
-    for (const lap of sorted) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${lap.driver}</td>
-            <td>${lap.car_name ?? lap.car_id}</td>
-            <td>${lap.track_name ?? lap.track_id}</td>
-            <td>${formatMs(lap.lap_time_ms)}</td>
-            <td class="valid-${lap.valid}">${lap.valid}</td>
-            <td>${lap.cuts}</td>
-            <td>${lap.date?.replace("T"," ").replace("Z","") ?? "-"}</td>
-        `;
-        tableBody.appendChild(tr);
+        if (!globalBest[lap.track_id]) globalBest[lap.track_id] = {};
+        if (!driverBest[lap.track_id]) driverBest[lap.track_id] = {};
+        if (!driverBest[lap.track_id][lap.driver])
+            driverBest[lap.track_id][lap.driver] = {};
+
+        sectors.forEach((ms, idx) => {
+            if (ms == null) return;
+            if (
+                globalBest[lap.track_id][idx] == null ||
+                ms < globalBest[lap.track_id][idx]
+            ) {
+                globalBest[lap.track_id][idx] = ms;
+            }
+
+            if (
+                driverBest[lap.track_id][lap.driver][idx] == null ||
+                ms < driverBest[lap.track_id][lap.driver][idx]
+            ) {
+                driverBest[lap.track_id][lap.driver][idx] = ms;
+            }
+        });
     }
+
+    return { globalBest, driverBest };
 }
 
+// ---------------------------------------------------------
+// Rendering rows
+// ---------------------------------------------------------
+function applySectorColor(ms, idx, lap, best) {
+    if (ms == null) return "";
+
+    const g = best.globalBest[lap.track_id][idx];
+    const p = best.driverBest[lap.track_id][lap.driver][idx];
+
+    if (ms === g) return "purple";
+    if (ms === p) return "green";
+    return "";
+}
+
+function renderRow(lap, best) {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+        <td>${lap.driver}</td>
+        <td>${lap.car_name}</td>
+        <td>${lap.track_name}</td>
+        <td>${formatMs(lap.lap_time_ms)}</td>
+        <td class="${lap.valid ? "valid-true" : "valid-false"}">${lap.valid}</td>
+        <td>${lap.cuts}</td>
+        <td>${lap.date}</td>
+    `;
+
+    // Add sector columns after base row
+    lap.sectors_fmt.forEach((fmt, idx) => {
+        const col = document.createElement("td");
+        col.textContent = fmt || "";
+        const color = lap.sector_colors[idx];
+        if (color === "purple") col.style.color = "#b077ff";
+        if (color === "green") col.style.color = "#6f6";
+        tr.appendChild(col);
+    });
+
+    return tr;
+}
 
 // ---------------------------------------------------------
-// Initial load
+// Main fetch + process
 // ---------------------------------------------------------
-async function loadLaps() {
+async function loadData() {
     statusBox.textContent = "Loading…";
 
     const res = await fetch(API_URL);
     allLaps = await res.json();
 
-    statusBox.textContent = `Loaded ${allLaps.length} laps`;
+    // STEP 1 — extract sectors for every lap
+    allLaps.forEach(lap => {
+        lap.track_name = friendlyTrack(lap.track_id);
+        lap.car_name = friendlyCar(lap.car_id);
 
-    buildTrackDropdown();
+        lap.sectors = extractSectors(lap);
+        lap.sectors_fmt = lap.sectors.map(ms => formatMs(ms));
+    });
 
-    filterValidity.value = DEFAULT_VALIDITY;
-    filterDriver.value = "all";
+    // STEP 2 — compute bests
+    const best = computeSectorBests(allLaps);
 
-    applyFilters();
+    // STEP 3 — assign colors
+    allLaps.forEach(lap => {
+        lap.sector_colors = lap.sectors.map((ms, idx) =>
+            applySectorColor(ms, idx, lap, best)
+        );
+    });
+
+    // STEP 4 — fill filter dropdowns
+    populateFilters();
+
+    // STEP 5 — show tables
+    renderTables();
+
+    statusBox.textContent = "";
 }
 
-function buildTrackDropdown() {
-    const tracks = Array.from(new Set(allLaps.map(l => l.track_id))).sort();
+function populateFilters() {
+    const drivers = [...new Set(allLaps.map(l => l.driver))];
+    const tracks = [...new Set(allLaps.map(l => l.track_id))];
 
-    filterTrack.innerHTML = "<option value='all'>All</option>";
+    filterDriver.innerHTML = `<option value="all">All</option>` +
+        drivers.map(d => `<option>${d}</option>`).join("");
 
-    for (const t of tracks) {
-        const opt = document.createElement("option");
-        opt.value = t;
-        opt.textContent = t;
-        filterTrack.appendChild(opt);
-    }
-
-    if (tracks.includes(DEFAULT_TRACK)) {
-        filterTrack.value = DEFAULT_TRACK;
-    }
+    filterTrack.innerHTML = tracks
+        .map(t => `<option value="${t}">${friendlyTrack(t)}</option>`)
+        .join("");
 }
 
+function passesFilters(lap) {
+    if (filterValidity.value !== "all") {
+        const need = filterValidity.value === "true";
+        if (lap.valid !== need) return false;
+    }
+
+    if (filterDriver.value !== "all" && lap.driver !== filterDriver.value)
+        return false;
+
+    if (filterTrack.value !== lap.track_id) return false;
+
+    return true;
+}
+
+function renderTables() {
+    const filtered = allLaps.filter(passesFilters);
+
+    tableBody.innerHTML = "";
+    filtered.forEach(lap => tableBody.appendChild(renderRow(lap)));
+
+    // Fastest table: per driver per track
+    fastestBody.innerHTML = "";
+    const bestPerDriver = {};
+
+    filtered.forEach(lap => {
+        const key = `${lap.driver}_${lap.track_id}`;
+        if (!bestPerDriver[key] || lap.lap_time_ms < bestPerDriver[key].lap_time_ms)
+            bestPerDriver[key] = lap;
+    });
+
+    Object.values(bestPerDriver).forEach(lap => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${lap.driver}</td>
+            <td>${lap.car_name}</td>
+            <td>${lap.track_name}</td>
+            <td>${formatMs(lap.lap_time_ms)}</td>
+        `;
+        fastestBody.appendChild(tr);
+    });
+}
 
 // ---------------------------------------------------------
-filterTrack.addEventListener("change", applyFilters);
-filterValidity.addEventListener("change", applyFilters);
-filterDriver.addEventListener("change", applyFilters);
+filterTrack.addEventListener("change", renderTables);
+filterDriver.addEventListener("change", renderTables);
+filterValidity.addEventListener("change", renderTables);
 
-document.querySelectorAll("#laps-table th[data-sort]").forEach(th => {
-    th.addEventListener("click", () => {
-        const field = th.dataset.sort;
-        if (currentSort === field) sortDirection *= -1;
-        else {
-            currentSort = field;
-            sortDirection = 1;
-        }
-        applyFilters();
-    });
-});
-
-loadLaps();
+loadData();
