@@ -17,6 +17,7 @@ let sortDirection = 1;
 
 const DEFAULT_TRACK = "ks_brands_hatch-gp";
 
+
 // ---------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------
@@ -42,30 +43,31 @@ function sortLaps(laps) {
     });
 }
 
+
 // ---------------------------------------------------------
-// Filtering logic (sequential)
-// Track → Valid → Driver
+// Filtering logic (Track → Valid → Driver)
 // ---------------------------------------------------------
 function applyFilters() {
     let track = filterTrack.value;
     let validity = filterValidity.value;
-    let driver = filterDriver.value;
 
     let filtered = allLaps;
 
-    // Track filter first
+    // 1. TRACK
     if (track !== "all") {
         filtered = filtered.filter(l => l.track_id === track);
     }
 
-    // Then validity
+    // 2. VALIDITY
     if (validity === "true") filtered = filtered.filter(l => l.valid === true);
     else if (validity === "false") filtered = filtered.filter(l => l.valid === false);
 
-    // Rebuild Driver dropdown based on previous filters
+    // 3. Rebuild driver dropdown based on track+validity
     rebuildDriverDropdown(filtered);
 
-    // Then apply driver filter
+    // 4. NOW get selected driver AFTER rebuilding
+    const driver = filterDriver.value;
+
     if (driver !== "all") {
         filtered = filtered.filter(l => l.driver === driver);
     }
@@ -74,12 +76,14 @@ function applyFilters() {
     renderAllLaps(filtered);
 }
 
+
 function rebuildDriverDropdown(filteredLaps) {
-    const selectedDriver = filterDriver.value;
+    const old = filterDriver.value;
 
     const drivers = Array.from(new Set(filteredLaps.map(l => l.driver))).sort();
 
     filterDriver.innerHTML = "<option value='all'>All</option>";
+
     for (const d of drivers) {
         const opt = document.createElement("option");
         opt.value = d;
@@ -87,11 +91,12 @@ function rebuildDriverDropdown(filteredLaps) {
         filterDriver.appendChild(opt);
     }
 
-    // Restore driver selection IF still valid
-    if (drivers.includes(selectedDriver)) {
-        filterDriver.value = selectedDriver;
+    // Keep previous selection only if it is still valid
+    if (drivers.includes(old)) {
+        filterDriver.value = old;
     }
 }
+
 
 // ---------------------------------------------------------
 // Rendering
@@ -140,6 +145,7 @@ function renderAllLaps(laps) {
     }
 }
 
+
 // ---------------------------------------------------------
 // Initial load
 // ---------------------------------------------------------
@@ -173,6 +179,7 @@ function buildTrackDropdown() {
     }
 }
 
+
 // ---------------------------------------------------------
 // Event listeners
 // ---------------------------------------------------------
@@ -192,6 +199,4 @@ document.querySelectorAll("#laps-table th[data-sort]").forEach(th => {
     });
 });
 
-// ---------------------------------------------------------
 loadLaps();
-// ---------------------------------------------------------
