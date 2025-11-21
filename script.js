@@ -6,14 +6,13 @@ const API_URL = "https://vps.racinggamers.se/api/laptimes";
 const statusBox = document.getElementById("status");
 const fastestBody = document.querySelector("#fastest-table tbody");
 const tableBody = document.querySelector("#laps-table tbody");
+const bannerBox = document.getElementById("current-banner");
 
 const filterValidity = document.getElementById("filter-validity");
 const filterDriver = document.getElementById("filter-driver");
 const filterTrack = document.getElementById("filter-track");
 
 let allLaps = [];
-let currentSort = null;
-let sortDirection = 1;
 
 // Friendly name mapping
 const TRACK_NAMES = {
@@ -60,45 +59,49 @@ function extractSectors(lap) {
 }
 
 // ---------------------------------------------------------
-// Compute best per track + per driver
+// Build global-best + personal-best sectors & lap times
 // ---------------------------------------------------------
-function computeSectorBests(laps) {
-    const globalBest = {};
-    const driverBest = {};
+function computeBests(laps) {
+    const best = {
+        globalSector: {},
+        driverSector: {},
+        globalLap: {},
+        driverLap: {}
+    };
 
     for (const lap of laps) {
-        const sectors = lap.sectors;
-        if (!sectors.length) continue;
+        const t = lap.track_id;
+        const d = lap.driver;
 
-        if (!globalBest[lap.track_id]) globalBest[lap.track_id] = {};
-        if (!driverBest[lap.track_id]) driverBest[lap.track_id] = {};
-        if (!driverBest[lap.track_id][lap.driver])
-            driverBest[lap.track_id][lap.driver] = {};
+        // Init containers
+        if (!best.globalSector[t]) best.globalSector[t] = {};
+        if (!best.driverSector[t]) best.driverSector[t] = {};
+        if (!best.driverSector[t][d]) best.driverSector[t][d] = {};
 
-        sectors.forEach((ms, idx) => {
+        if (!best.globalLap[t] || lap.lap_time_ms < best.globalLap[t])
+            best.globalLap[t] = lap.lap_time_ms;
+
+        if (!best.driverLap[t]) best.driverLap[t] = {};
+        if (!best.driverLap[t][d] || lap.lap_time_ms < best.driverLap[t][d])
+            best.driverLap[t][d] = lap.lap_time_ms;
+
+        // Sector bests
+        lap.sectors.forEach((ms, idx) => {
             if (ms == null) return;
 
-            if (
-                globalBest[lap.track_id][idx] == null ||
-                ms < globalBest[lap.track_id][idx]
-            ) {
-                globalBest[lap.track_id][idx] = ms;
-            }
+            if (!best.globalSector[t][idx] || ms < best.globalSector[t][idx])
+                best.globalSector[t][idx] = ms;
 
-            if (
-                driverBest[lap.track_id][lap.driver][idx] == null ||
-                ms < driverBest[lap.track_id][lap.driver][idx]
-            ) {
-                driverBest[lap.track_id][lap.driver][idx] = ms;
-            }
+            if (!best.driverSector[t][d][idx] || ms < best.driverSector[t][d][idx])
+                best.driverSector[t][d][idx] = ms;
         });
     }
 
-    return { globalBest, driverBest };
+    return best;
 }
 
 // ---------------------------------------------------------
-// Row expansion logic (click to show all sectors)
+// Row expansion logic
 // ---------------------------------------------------------
 function buildSectorDetailRow(lap) {
     const tr = document.createElement("tr");
@@ -115,16 +118,11 @@ function buildSectorDetailRow(lap) {
         lap.sectors.forEach((ms, idx) => {
             const fmt = formatMs(ms);
             const color = lap.sector_colors[idx];
-
             let css = "";
             if (color === "purple") css = "color:#b077ff;font-weight:bold;";
             if (color === "green") css = "color:#6f6;font-weight:bold;";
 
-            html += `
-                <div class="sector-line" style="${css}">
-                    Sector ${idx + 1}: ${fmt ?? "-"}
-                </div>
-            `;
+            html += `<div class="sector-line" style="${css}">Sector ${idx + 1}: ${fmt ?? "-"}</div>`;
         });
 
         html += `</div>`;
@@ -138,6 +136,7 @@ function buildSectorDetailRow(lap) {
 function attachRowExpansion(tr, lap) {
     tr.addEventListener("click", () => {
         const next = tr.nextSibling;
+
         if (next && next.classList.contains("sector-detail")) {
             next.remove();
             return;
@@ -149,21 +148,21 @@ function attachRowExpansion(tr, lap) {
 // ---------------------------------------------------------
 // Rendering rows
 // ---------------------------------------------------------
-function applySectorColor(ms, idx, lap, best) {
-    if (ms == null) return "";
-
-    const g = best.globalBest[lap.track_id]?.[idx];
-    const p = best.driverBest[lap.track_id]?.[lap.driver]?.[idx];
-
-    if (ms === g) return "purple";
-    if (ms === p) return "green";
-    return "";
-}
-
 function renderRow(lap) {
     const tr = document.createElement("tr");
 
-    // NOTE: Sector columns are *not* inline; only shown in expansion.
+    // Lap time CSS
+    let lapCss = "";
+    if (lap.lap_color === "purple") lapCss = "style='color:#b077ff;font-weight:bold;'";
+    if (lap.lap_color === "green") lapCss = "style='color:#6f6;font-weight:bold;'";
+
+    const s1Css = lap.sector_colors[0] === "purple" ? "style='color:#b077ff'" :
+                  lap.sector_colors[0] === "green"  ? "style='color:#6f6'" : "";
+    const s2Css = lap.sector_colors[1] === "purple" ? "style='color:#b077ff'" :
+                  lap.sector_colors[1] === "green"  ? "style='color:#6f6'" : "";
+    const s3Css = lap.sector_colors[2] === "purple" ? "style='color:#b077ff'" :
+                  lap.sector_colors[2] === "green"  ? "style='color:#6f6'" : "";
+
     tr.innerHTML = `
         <td>${lap.driver}</td>
         <td>${lap.car_name}</td>
@@ -171,10 +170,10 @@ function renderRow(lap) {
         <td class="${lap.valid ? "valid-true" : "valid-false"}">${lap.valid}</td>
         <td>${lap.date}</td>
         <td>${lap.cuts}</td>
-        <td>${lap.sectors_fmt?.[0] ?? ""}</td>
-        <td>${lap.sectors_fmt?.[1] ?? ""}</td>
-        <td>${lap.sectors_fmt?.[2] ?? ""}</td>
-        <td>${formatMs(lap.lap_time_ms)}</td>
+        <td ${s1Css}>${lap.sectors_fmt?.[0] ?? ""}</td>
+        <td ${s2Css}>${lap.sectors_fmt?.[1] ?? ""}</td>
+        <td ${s3Css}>${lap.sectors_fmt?.[2] ?? ""}</td>
+        <td ${lapCss}>${formatMs(lap.lap_time_ms)}</td>
     `;
 
     attachRowExpansion(tr, lap);
@@ -190,6 +189,7 @@ async function loadData() {
     const res = await fetch(API_URL);
     allLaps = await res.json();
 
+    // Prepare laps
     allLaps.forEach(lap => {
         lap.track_name = friendlyTrack(lap.track_id);
         lap.car_name = friendlyCar(lap.car_id);
@@ -197,13 +197,35 @@ async function loadData() {
         lap.sectors_fmt = lap.sectors.map(ms => formatMs(ms));
     });
 
-    const best = computeSectorBests(allLaps);
+    // Compute personal + global bests
+    const best = computeBests(allLaps);
 
+    // Sector colors + lap colors
     allLaps.forEach(lap => {
-        lap.sector_colors = lap.sectors.map((ms, idx) =>
-            applySectorColor(ms, idx, lap, best)
-        );
+        const t = lap.track_id;
+        const d = lap.driver;
+
+        // Per-sector coloring
+        lap.sector_colors = lap.sectors.map((ms, idx) => {
+            if (ms == null) return null;
+
+            if (ms === best.globalSector[t][idx]) return "purple";
+            if (ms === best.driverSector[t][d][idx]) return "green";
+            return null;
+        });
+
+        // Lap coloring
+        if (lap.lap_time_ms === best.globalLap[t]) {
+            lap.lap_color = "purple";
+        } else if (lap.lap_time_ms === best.driverLap[t][d]) {
+            lap.lap_color = "green";
+        } else {
+            lap.lap_color = null;
+        }
     });
+
+    // Banner
+    bannerBox.textContent = `Showing ${allLaps.length} laps from server`;
 
     populateFilters();
     renderTables();
@@ -246,9 +268,11 @@ function passesFilters(lap) {
 function renderTables() {
     const filtered = allLaps.filter(passesFilters);
 
+    // All laps
     tableBody.innerHTML = "";
     filtered.forEach(lap => tableBody.appendChild(renderRow(lap)));
 
+    // Fastest per driver per track
     fastestBody.innerHTML = "";
     const bestPerDriver = {};
 
