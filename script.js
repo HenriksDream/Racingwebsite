@@ -16,6 +16,7 @@ let currentSort = null;
 let sortDirection = 1;
 
 const DEFAULT_TRACK = "ks_brands_hatch-gp";
+const DEFAULT_VALIDITY = "true";   // <── NEW
 
 
 // ---------------------------------------------------------
@@ -62,12 +63,11 @@ function applyFilters() {
     if (validity === "true") filtered = filtered.filter(l => l.valid === true);
     else if (validity === "false") filtered = filtered.filter(l => l.valid === false);
 
-    // 3. Rebuild driver dropdown based on track+validity
+    // 3. Rebuild driver list based on track+validity
     rebuildDriverDropdown(filtered);
 
-    // 4. NOW get selected driver AFTER rebuilding
+    // 4. DRIVER (taken after rebuilding dropdown)
     const driver = filterDriver.value;
-
     if (driver !== "all") {
         filtered = filtered.filter(l => l.driver === driver);
     }
@@ -91,7 +91,7 @@ function rebuildDriverDropdown(filteredLaps) {
         filterDriver.appendChild(opt);
     }
 
-    // Keep previous selection only if it is still valid
+    // Restore selection only if still valid
     if (drivers.includes(old)) {
         filterDriver.value = old;
     }
@@ -158,8 +158,14 @@ async function loadLaps() {
     statusBox.textContent = `Loaded ${allLaps.length} laps`;
 
     buildTrackDropdown();
+
+    // Default filters
+    filterValidity.value = DEFAULT_VALIDITY;     // <── NEW
+    filterDriver.value = "all";                  // ensure no one is pre-selected
+
     applyFilters();
 }
+
 
 function buildTrackDropdown() {
     const tracks = Array.from(new Set(allLaps.map(l => l.track_id))).sort();
