@@ -1,4 +1,4 @@
-const API_URL = "https://api.racinggamers.se/laptimes.json";
+const API_URL = "https://vps.racinggamers.se/api/laptimes";
 
 const statusBox = document.getElementById("status");
 const fastestBody = document.querySelector("#fastest-table tbody");
