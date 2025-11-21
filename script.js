@@ -1,3 +1,6 @@
+// ---------------------------------------------------
+// API CONFIG
+// ---------------------------------------------------
 const API_URL = "https://vps.racinggamers.se/api/laptimes";
 
 const statusBox = document.getElementById("status");
@@ -30,15 +33,13 @@ async function loadData(showLoading = true) {
     try {
         if (showLoading) statusBox.textContent = "Loading…";
 
-        const response = await fetch(API_URL + `?t=${Date.now()}`); // prevent cache
+        const response = await fetch(API_URL + `?t=${Date.now()}`); // avoid cache
         if (!response.ok) throw new Error("API error");
 
         allLaps = await response.json();
 
-        if (showLoading) statusBox.textContent = "";
-
-        // Only render on manual load
         if (showLoading) {
+            statusBox.textContent = "";
             renderDriverList();
             renderFastestLaps();
             renderFullTable();
@@ -117,6 +118,7 @@ function renderFullTable() {
         data.sort((a, b) => {
             let x = a[currentSort];
             let y = b[currentSort];
+
             if (currentSort === "lap_time_ms" || currentSort === "lap_count") {
                 return (x - y) * sortDirection;
             }
@@ -169,7 +171,7 @@ filterDriver.addEventListener("change", renderFullTable);
 filterValidity.addEventListener("change", renderFullTable);
 
 // ---------------------------------------------------
-// Run once immediately
+// Initial load
 // ---------------------------------------------------
 loadData(true);
 
@@ -178,6 +180,7 @@ loadData(true);
 // ---------------------------------------------------
 setInterval(async () => {
     console.log("Silent refresh…");
+
     const prev = {
         validity: filterValidity.value,
         driver: filterDriver.value,
@@ -185,7 +188,7 @@ setInterval(async () => {
         dir: sortDirection
     };
 
-    await loadData(false); // silent
+    await loadData(false); // silent fetch
 
     filterValidity.value = prev.validity;
     filterDriver.value = prev.driver;
