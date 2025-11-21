@@ -4,6 +4,8 @@
 const API_URL = "https://vps.racinggamers.se/api/laptimes";
 
 const statusBox = document.getElementById("status");
+const bannerBox = document.getElementById("current-banner");
+
 const fastestBody = document.querySelector("#fastest-table tbody");
 const tableBody = document.querySelector("#laps-table tbody");
 
@@ -12,10 +14,8 @@ const filterDriver = document.getElementById("filter-driver");
 const filterTrack = document.getElementById("filter-track");
 
 let allLaps = [];
-let currentSort = null;
-let sortDirection = 1;
 
-// Friendly name mapping
+// Friendly names
 const TRACK_NAMES = {
     "ks_brands_hatch-gp": "Brands Hatch GP",
 };
@@ -60,7 +60,7 @@ function extractSectors(lap) {
 }
 
 // ---------------------------------------------------------
-// Compute best per track + per driver
+// Compute bests per track + per driver
 // ---------------------------------------------------------
 function computeSectorBests(laps) {
     const globalBest = {};
@@ -78,17 +78,13 @@ function computeSectorBests(laps) {
         sectors.forEach((ms, idx) => {
             if (ms == null) return;
 
-            if (
-                globalBest[lap.track_id][idx] == null ||
-                ms < globalBest[lap.track_id][idx]
-            ) {
+            if (globalBest[lap.track_id][idx] == null ||
+                ms < globalBest[lap.track_id][idx]) {
                 globalBest[lap.track_id][idx] = ms;
             }
 
-            if (
-                driverBest[lap.track_id][lap.driver][idx] == null ||
-                ms < driverBest[lap.track_id][lap.driver][idx]
-            ) {
+            if (driverBest[lap.track_id][lap.driver][idx] == null ||
+                ms < driverBest[lap.track_id][lap.driver][idx]) {
                 driverBest[lap.track_id][lap.driver][idx] = ms;
             }
         });
@@ -98,7 +94,7 @@ function computeSectorBests(laps) {
 }
 
 // ---------------------------------------------------------
-// Row expansion logic
+// Row Expansion (click to show all sectors)
 // ---------------------------------------------------------
 function buildSectorDetailRow(lap) {
     const tr = document.createElement("tr");
@@ -147,9 +143,9 @@ function attachRowExpansion(tr, lap) {
 }
 
 // ---------------------------------------------------------
-// Sector colouring
+// Coloring helpers
 // ---------------------------------------------------------
-function applySectorColor(ms, idx, lap, best) {
+function sectorColor(ms, idx, lap, best) {
     if (ms == null) return "";
 
     const g = best.globalBest[lap.track_id]?.[idx];
@@ -161,7 +157,7 @@ function applySectorColor(ms, idx, lap, best) {
 }
 
 // ---------------------------------------------------------
-// Render table rows
+// Render a single table row
 // ---------------------------------------------------------
 function renderRow(lap) {
     const tr = document.createElement("tr");
@@ -179,12 +175,36 @@ function renderRow(lap) {
         <td>${formatMs(lap.lap_time_ms)}</td>
     `;
 
+    // Coloring for S1/S2/S3
+    const sectorCells = tr.querySelectorAll("td:nth-child(7), td:nth-child(8), td:nth-child(9)");
+    sectorCells.forEach((cell, idx) => {
+        const color = lap.sector_colors[idx];
+        if (color === "purple") {
+            cell.style.color = "#b077ff";
+            cell.style.fontWeight = "bold";
+        }
+        if (color === "green") {
+            cell.style.color = "#6f6";
+            cell.style.fontWeight = "bold";
+        }
+    });
+
+    // Colour lap time if any good sector
+    const lapTimeCell = tr.querySelector("td:nth-child(10)");
+    if (lap.sector_colors.includes("purple")) {
+        lapTimeCell.style.color = "#b077ff";
+        lapTimeCell.style.fontWeight = "bold";
+    } else if (lap.sector_colors.includes("green")) {
+        lapTimeCell.style.color = "#6f6";
+        lapTimeCell.style.fontWeight = "bold";
+    }
+
     attachRowExpansion(tr, lap);
     return tr;
 }
 
 // ---------------------------------------------------------
-// Main fetch & processing
+// Fetch + processing
 // ---------------------------------------------------------
 async function loadData() {
     statusBox.textContent = "Loading…";
@@ -192,6 +212,7 @@ async function loadData() {
     const res = await fetch(API_URL);
     allLaps = await res.json();
 
+    // Friendly names, sector extraction
     allLaps.forEach(lap => {
         lap.track_name = friendlyTrack(lap.track_id);
         lap.car_name = friendlyCar(lap.car_id);
@@ -199,25 +220,28 @@ async function loadData() {
         lap.sectors_fmt = lap.sectors.map(ms => formatMs(ms));
     });
 
+    // Best calculations
     const best = computeSectorBests(allLaps);
 
+    // Mark colours
     allLaps.forEach(lap => {
         lap.sector_colors = lap.sectors.map((ms, idx) =>
-            applySectorColor(ms, idx, lap, best)
+            sectorColor(ms, idx, lap, best)
         );
     });
 
-    // ---------------------------------------------------------
-    // HARD-CODED BANNER TEXT (YOUR REQUEST)
-    // ---------------------------------------------------------
-    document.getElementById("current-banner").textContent =
+    // Banner (as you requested, hard-coded)
+    bannerBox.textContent =
         "Currently racing at Brands Hatch in Lotus Exos 125";
 
     populateFilters();
     renderTables();
+
     statusBox.textContent = "";
 }
 
+// ---------------------------------------------------------
+// Filters
 // ---------------------------------------------------------
 function populateFilters() {
     const drivers = [...new Set(allLaps.map(l => l.driver))];
@@ -246,6 +270,8 @@ function passesFilters(lap) {
     return true;
 }
 
+// ---------------------------------------------------------
+// Render tables
 // ---------------------------------------------------------
 function renderTables() {
     const filtered = allLaps.filter(passesFilters);
