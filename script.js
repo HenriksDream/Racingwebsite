@@ -59,7 +59,9 @@ function extractSectors(lap) {
     return sectors;
 }
 
+// ---------------------------------------------------------
 // Compute best per track + per driver
+// ---------------------------------------------------------
 function computeSectorBests(laps) {
     const globalBest = {};
     const driverBest = {};
@@ -96,14 +98,14 @@ function computeSectorBests(laps) {
 }
 
 // ---------------------------------------------------------
-// Row expansion logic
+// Row expansion logic (click to show all sectors)
 // ---------------------------------------------------------
 function buildSectorDetailRow(lap) {
     const tr = document.createElement("tr");
     tr.className = "sector-detail";
 
     const td = document.createElement("td");
-    td.colSpan = 7; // full-width of the main table
+    td.colSpan = 10;
 
     if (!lap.sectors.length) {
         td.innerHTML = `<div class="sector-box">No sector times available</div>`;
@@ -114,12 +116,12 @@ function buildSectorDetailRow(lap) {
             const fmt = formatMs(ms);
             const color = lap.sector_colors[idx];
 
-            let colorStyle = "";
-            if (color === "purple") colorStyle = "color:#b077ff;font-weight:bold;";
-            if (color === "green") colorStyle = "color:#6f6;font-weight:bold;";
+            let css = "";
+            if (color === "purple") css = "color:#b077ff;font-weight:bold;";
+            if (color === "green") css = "color:#6f6;font-weight:bold;";
 
             html += `
-                <div class="sector-line" style="${colorStyle}">
+                <div class="sector-line" style="${css}">
                     Sector ${idx + 1}: ${fmt ?? "-"}
                 </div>
             `;
@@ -136,16 +138,11 @@ function buildSectorDetailRow(lap) {
 function attachRowExpansion(tr, lap) {
     tr.addEventListener("click", () => {
         const next = tr.nextSibling;
-
-        // Collapse if already open
-        if (next && next.classList && next.classList.contains("sector-detail")) {
+        if (next && next.classList.contains("sector-detail")) {
             next.remove();
             return;
         }
-
-        // Expand
-        const detail = buildSectorDetailRow(lap);
-        tr.after(detail);
+        tr.after(buildSectorDetailRow(lap));
     });
 }
 
@@ -155,25 +152,29 @@ function attachRowExpansion(tr, lap) {
 function applySectorColor(ms, idx, lap, best) {
     if (ms == null) return "";
 
-    const g = best.globalBest[lap.track_id][idx];
-    const p = best.driverBest[lap.track_id][lap.driver][idx];
+    const g = best.globalBest[lap.track_id]?.[idx];
+    const p = best.driverBest[lap.track_id]?.[lap.driver]?.[idx];
 
     if (ms === g) return "purple";
     if (ms === p) return "green";
     return "";
 }
 
-function renderRow(lap, best) {
+function renderRow(lap) {
     const tr = document.createElement("tr");
 
+    // NOTE: Sector columns are *not* inline; only shown in expansion.
     tr.innerHTML = `
         <td>${lap.driver}</td>
         <td>${lap.car_name}</td>
         <td>${lap.track_name}</td>
-        <td>${formatMs(lap.lap_time_ms)}</td>
         <td class="${lap.valid ? "valid-true" : "valid-false"}">${lap.valid}</td>
-        <td>${lap.cuts}</td>
         <td>${lap.date}</td>
+        <td>${lap.cuts}</td>
+        <td>${lap.sectors_fmt?.[0] ?? ""}</td>
+        <td>${lap.sectors_fmt?.[1] ?? ""}</td>
+        <td>${lap.sectors_fmt?.[2] ?? ""}</td>
+        <td>${formatMs(lap.lap_time_ms)}</td>
     `;
 
     attachRowExpansion(tr, lap);
@@ -181,7 +182,7 @@ function renderRow(lap, best) {
 }
 
 // ---------------------------------------------------------
-// Main fetch + process
+// Main fetch & processing
 // ---------------------------------------------------------
 async function loadData() {
     statusBox.textContent = "Loading…";
@@ -192,8 +193,8 @@ async function loadData() {
     allLaps.forEach(lap => {
         lap.track_name = friendlyTrack(lap.track_id);
         lap.car_name = friendlyCar(lap.car_id);
-
         lap.sectors = extractSectors(lap);
+        lap.sectors_fmt = lap.sectors.map(ms => formatMs(ms));
     });
 
     const best = computeSectorBests(allLaps);
@@ -206,10 +207,12 @@ async function loadData() {
 
     populateFilters();
     renderTables();
-
     statusBox.textContent = "";
 }
 
+// ---------------------------------------------------------
+// Filters
+// ---------------------------------------------------------
 function populateFilters() {
     const drivers = [...new Set(allLaps.map(l => l.driver))];
     const tracks = [...new Set(allLaps.map(l => l.track_id))];
@@ -237,13 +240,15 @@ function passesFilters(lap) {
     return true;
 }
 
+// ---------------------------------------------------------
+// Rendering tables
+// ---------------------------------------------------------
 function renderTables() {
     const filtered = allLaps.filter(passesFilters);
 
     tableBody.innerHTML = "";
     filtered.forEach(lap => tableBody.appendChild(renderRow(lap)));
 
-    // Fastest table
     fastestBody.innerHTML = "";
     const bestPerDriver = {};
 
