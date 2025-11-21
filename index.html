@@ -1,71 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lap Times</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+    <h1>Lap Times</h1>
 
-<h1>Lap Times</h1>
+    <!-- NEW BANNER -->
+    <div id="current-banner" class="banner"></div>
 
-<div id="status">Loading…</div>
+    <p id="status">Loading…</p>
 
-<section id="filters">
+    <section id="filters">
+        <label>
+            Track:
+            <select id="filter-track"></select>
+        </label>
 
-    <!-- Track first -->
-    <label>
-        Track:
-        <select id="filter-track"></select>
-    </label>
+        <label>
+            Valid:
+            <select id="filter-validity">
+                <option value="all">All</option>
+                <option value="true">Valid only</option>
+                <option value="false">Invalid only</option>
+            </select>
+        </label>
 
-    <!-- Validity second -->
-    <label>
-        Valid:
-        <select id="filter-validity">
-            <option value="all">All</option>
-            <option value="true">Valid only</option>
-            <option value="false">Invalid only</option>
-        </select>
-    </label>
+        <label>
+            Driver:
+            <select id="filter-driver"></select>
+        </label>
+    </section>
 
-    <!-- Driver last -->
-    <label>
-        Driver:
-        <select id="filter-driver"></select>
-    </label>
+    <h2>Fastest Laps</h2>
+    <table id="fastest-table">
+        <thead>
+            <tr>
+                <th>Driver</th>
+                <th>Car</th>
+                <th>Track</th>
+                <th>Lap Time</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
-</section>
+    <h2>All Laps</h2>
+    <table id="laps-table">
+        <thead>
+            <tr>
+                <th data-sort="driver">Driver</th>
+                <th data-sort="car_name">Car</th>
+                <th data-sort="track_name">Track</th>
+                <th data-sort="lap_time_ms">Lap Time</th>
+                <th data-sort="valid">Valid</th>
+                <th data-sort="cuts">Cuts</th>
+                <th data-sort="date">Date</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
-<h2>Fastest Laps (per driver)</h2>
-<table id="fastest-table">
-    <thead>
-    <tr>
-        <th>Driver</th>
-        <th>Car</th>
-        <th>Track</th>
-        <th>Lap Time</th>
-    </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-<h2>All Laps</h2>
-<table id="laps-table">
-    <thead>
-    <tr>
-        <th data-sort="driver">Driver</th>
-        <th data-sort="car_name">Car</th>
-        <th data-sort="track_name">Track</th>
-        <th data-sort="lap_time_ms">Lap Time</th>
-        <th data-sort="valid">Valid</th>
-        <th data-sort="cuts">Cuts</th>
-        <th data-sort="date">Date</th>
-    </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

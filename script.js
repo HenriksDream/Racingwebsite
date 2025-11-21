@@ -16,7 +16,7 @@ let currentSort = null;
 let sortDirection = 1;
 
 const DEFAULT_TRACK = "ks_brands_hatch-gp";
-const DEFAULT_VALIDITY = "true";   // <── NEW
+const DEFAULT_VALIDITY = "true";  // default load = valid only
 
 
 // ---------------------------------------------------------
@@ -46,27 +46,45 @@ function sortLaps(laps) {
 
 
 // ---------------------------------------------------------
+// Banner (NEW)
+// ---------------------------------------------------------
+function updateBanner() {
+    const banner = document.getElementById("current-banner");
+    const track = filterTrack.value;
+
+    const lap = allLaps.find(l => l.track_id === track);
+
+    const car = lap ? (lap.car_name ?? lap.car_id) : "unknown car";
+    const trackName = lap ? (lap.track_name ?? lap.track_id) : track;
+
+    banner.textContent = `Currently racing on ${trackName} in ${car}`;
+}
+
+
+// ---------------------------------------------------------
 // Filtering logic (Track → Valid → Driver)
 // ---------------------------------------------------------
 function applyFilters() {
+    updateBanner();  // NEW
+
     let track = filterTrack.value;
     let validity = filterValidity.value;
 
     let filtered = allLaps;
 
-    // 1. TRACK
+    // Track
     if (track !== "all") {
         filtered = filtered.filter(l => l.track_id === track);
     }
 
-    // 2. VALIDITY
+    // Validity
     if (validity === "true") filtered = filtered.filter(l => l.valid === true);
     else if (validity === "false") filtered = filtered.filter(l => l.valid === false);
 
-    // 3. Rebuild driver list based on track+validity
+    // Rebuild drivers
     rebuildDriverDropdown(filtered);
 
-    // 4. DRIVER (taken after rebuilding dropdown)
+    // Driver
     const driver = filterDriver.value;
     if (driver !== "all") {
         filtered = filtered.filter(l => l.driver === driver);
@@ -91,7 +109,6 @@ function rebuildDriverDropdown(filteredLaps) {
         filterDriver.appendChild(opt);
     }
 
-    // Restore selection only if still valid
     if (drivers.includes(old)) {
         filterDriver.value = old;
     }
@@ -159,13 +176,11 @@ async function loadLaps() {
 
     buildTrackDropdown();
 
-    // Default filters
-    filterValidity.value = DEFAULT_VALIDITY;     // <── NEW
-    filterDriver.value = "all";                  // ensure no one is pre-selected
+    filterValidity.value = DEFAULT_VALIDITY;
+    filterDriver.value = "all";
 
     applyFilters();
 }
-
 
 function buildTrackDropdown() {
     const tracks = Array.from(new Set(allLaps.map(l => l.track_id))).sort();
@@ -179,15 +194,12 @@ function buildTrackDropdown() {
         filterTrack.appendChild(opt);
     }
 
-    // Default = Brands Hatch GP
     if (tracks.includes(DEFAULT_TRACK)) {
         filterTrack.value = DEFAULT_TRACK;
     }
 }
 
 
-// ---------------------------------------------------------
-// Event listeners
 // ---------------------------------------------------------
 filterTrack.addEventListener("change", applyFilters);
 filterValidity.addEventListener("change", applyFilters);
