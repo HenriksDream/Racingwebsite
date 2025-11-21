@@ -53,3 +53,17 @@ table tr:nth-child(even) {
     font-weight: 500;
     color: #ddd;
 }
+
+.sector-detail td {
+    background: #181818;
+    border-top: none;
+    padding: 12px;
+}
+
+.sector-box {
+    padding: 8px 12px;
+}
+
+.sector-line {
+    margin-bottom: 4px;
+}

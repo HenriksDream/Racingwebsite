@@ -44,7 +44,6 @@ function formatMs(ms) {
     return `${m}:${s.toString().padStart(2, "0")}.${msPart}`;
 }
 
-// Extract sectors from s0…s9
 function extractSectors(lap) {
     const sectors = [];
     for (let i = 0; i < 10; i++) {
@@ -54,19 +53,16 @@ function extractSectors(lap) {
             else sectors.push(null);
         }
     }
-
-    // Cut trailing nulls (only consider leading sectors)
     while (sectors.length && sectors[sectors.length - 1] === null) {
         sectors.pop();
     }
-
     return sectors;
 }
 
 // Compute best per track + per driver
 function computeSectorBests(laps) {
-    const globalBest = {};  // track → sector index → ms
-    const driverBest = {};  // track → driver → sector index → ms
+    const globalBest = {};
+    const driverBest = {};
 
     for (const lap of laps) {
         const sectors = lap.sectors;
@@ -79,6 +75,7 @@ function computeSectorBests(laps) {
 
         sectors.forEach((ms, idx) => {
             if (ms == null) return;
+
             if (
                 globalBest[lap.track_id][idx] == null ||
                 ms < globalBest[lap.track_id][idx]
@@ -96,6 +93,60 @@ function computeSectorBests(laps) {
     }
 
     return { globalBest, driverBest };
+}
+
+// ---------------------------------------------------------
+// Row expansion logic
+// ---------------------------------------------------------
+function buildSectorDetailRow(lap) {
+    const tr = document.createElement("tr");
+    tr.className = "sector-detail";
+
+    const td = document.createElement("td");
+    td.colSpan = 7; // full-width of the main table
+
+    if (!lap.sectors.length) {
+        td.innerHTML = `<div class="sector-box">No sector times available</div>`;
+    } else {
+        let html = `<div class="sector-box">`;
+
+        lap.sectors.forEach((ms, idx) => {
+            const fmt = formatMs(ms);
+            const color = lap.sector_colors[idx];
+
+            let colorStyle = "";
+            if (color === "purple") colorStyle = "color:#b077ff;font-weight:bold;";
+            if (color === "green") colorStyle = "color:#6f6;font-weight:bold;";
+
+            html += `
+                <div class="sector-line" style="${colorStyle}">
+                    Sector ${idx + 1}: ${fmt ?? "-"}
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        td.innerHTML = html;
+    }
+
+    tr.appendChild(td);
+    return tr;
+}
+
+function attachRowExpansion(tr, lap) {
+    tr.addEventListener("click", () => {
+        const next = tr.nextSibling;
+
+        // Collapse if already open
+        if (next && next.classList && next.classList.contains("sector-detail")) {
+            next.remove();
+            return;
+        }
+
+        // Expand
+        const detail = buildSectorDetailRow(lap);
+        tr.after(detail);
+    });
 }
 
 // ---------------------------------------------------------
@@ -125,16 +176,7 @@ function renderRow(lap, best) {
         <td>${lap.date}</td>
     `;
 
-    // Add sector columns after base row
-    lap.sectors_fmt.forEach((fmt, idx) => {
-        const col = document.createElement("td");
-        col.textContent = fmt || "";
-        const color = lap.sector_colors[idx];
-        if (color === "purple") col.style.color = "#b077ff";
-        if (color === "green") col.style.color = "#6f6";
-        tr.appendChild(col);
-    });
-
+    attachRowExpansion(tr, lap);
     return tr;
 }
 
@@ -147,29 +189,22 @@ async function loadData() {
     const res = await fetch(API_URL);
     allLaps = await res.json();
 
-    // STEP 1 — extract sectors for every lap
     allLaps.forEach(lap => {
         lap.track_name = friendlyTrack(lap.track_id);
         lap.car_name = friendlyCar(lap.car_id);
 
         lap.sectors = extractSectors(lap);
-        lap.sectors_fmt = lap.sectors.map(ms => formatMs(ms));
     });
 
-    // STEP 2 — compute bests
     const best = computeSectorBests(allLaps);
 
-    // STEP 3 — assign colors
     allLaps.forEach(lap => {
         lap.sector_colors = lap.sectors.map((ms, idx) =>
             applySectorColor(ms, idx, lap, best)
         );
     });
 
-    // STEP 4 — fill filter dropdowns
     populateFilters();
-
-    // STEP 5 — show tables
     renderTables();
 
     statusBox.textContent = "";
@@ -179,7 +214,8 @@ function populateFilters() {
     const drivers = [...new Set(allLaps.map(l => l.driver))];
     const tracks = [...new Set(allLaps.map(l => l.track_id))];
 
-    filterDriver.innerHTML = `<option value="all">All</option>` +
+    filterDriver.innerHTML =
+        `<option value="all">All</option>` +
         drivers.map(d => `<option>${d}</option>`).join("");
 
     filterTrack.innerHTML = tracks
@@ -207,7 +243,7 @@ function renderTables() {
     tableBody.innerHTML = "";
     filtered.forEach(lap => tableBody.appendChild(renderRow(lap)));
 
-    // Fastest table: per driver per track
+    // Fastest table
     fastestBody.innerHTML = "";
     const bestPerDriver = {};
 
