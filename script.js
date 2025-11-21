@@ -234,6 +234,8 @@ async function loadData() {
     bannerBox.textContent =
         "Currently racing at Brands Hatch in Lotus Exos 125";
 
+    filterValidity.value = "true";
+
     populateFilters();
     renderTables();
 
